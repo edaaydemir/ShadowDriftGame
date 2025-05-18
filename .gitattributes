@@ -1,6 +1,13 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Ignore native platform code from linguist
 android/** linguist-vendored
 ios/** linguist-vendored
+macos/** linguist-vendored
+windows/** linguist-vendored
+linux/** linguist-vendored
+
+# Ignore native C++ files
 *.cpp linguist-vendored
 *.h linguist-vendored
