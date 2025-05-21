@@ -1,25 +1,26 @@
 import 'package:flame/components.dart';
 import 'package:flame/collisions.dart';
-import 'package:flame/input.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 import 'package:shadow_drift/game/my_world.dart';
+import 'package:shadow_drift/game/obstacles.dart';
 
 class Player extends SpriteComponent
-    with KeyboardHandler, CollisionCallbacks, HasGameRef<MyWorld> {
-  final double moveSpeed = 200;
-  final double jumpSpeed = -400;
+    with HasGameRef<MyWorld>, KeyboardHandler, CollisionCallbacks {
   Vector2 velocity = Vector2.zero();
-  bool isOnGround = true;
+  double speed = 200;
+  double gravity = 800;
+  double jumpSpeed = -400;
+  bool isOnGround = false;
 
   Player() {
-    size = Vector2(70, 70);
-    anchor = Anchor.center;
+    size = Vector2(50, 50);
+    anchor = Anchor.bottomCenter;
   }
 
   @override
   Future<void> onLoad() async {
     sprite = await Sprite.load('bluecharacter.png');
+    position = Vector2(64, gameRef.size.y);
     add(RectangleHitbox());
   }
 
@@ -27,37 +28,63 @@ class Player extends SpriteComponent
   void update(double dt) {
     super.update(dt);
 
-    position += velocity * dt;
-
+    // Gravity
     if (!isOnGround) {
-      velocity.y += 800 * dt; 
+      velocity.y += gravity * dt;
     }
 
-    if (position.y >= 536) {
-      position.y = 536;
-      isOnGround = true;
+    // Apply movement
+    position += velocity * dt;
+
+    // Yere düştüyse
+    if (position.y > gameRef.size.y) {
+      position.y = gameRef.size.y;
       velocity.y = 0;
+      isOnGround = true;
     }
   }
 
   @override
-  bool onKeyEvent(
-    KeyEvent event,
-    Set<LogicalKeyboardKey> keysPressed,
-  ) {
-    velocity.x = 0;
-
-    if (keysPressed.contains(LogicalKeyboardKey.arrowLeft)) {
-      velocity.x = -moveSpeed;
-    } else if (keysPressed.contains(LogicalKeyboardKey.arrowRight)) {
-      velocity.x = moveSpeed;
+  bool onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
+    if (event is KeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+        velocity.x = -speed;
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+        velocity.x = speed;
+      } else if (event.logicalKey == LogicalKeyboardKey.space && isOnGround) {
+        velocity.y = jumpSpeed;
+        isOnGround = false;
+      }
+    } else if (event is KeyUpEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+          event.logicalKey == LogicalKeyboardKey.arrowRight) {
+        velocity.x = 0;
+      }
     }
+    return true;
+  }
 
-    if (keysPressed.contains(LogicalKeyboardKey.space) && isOnGround) {
-      velocity.y = jumpSpeed;
+  @override
+  void onCollision(Set<Vector2> points, PositionComponent other) {
+    // Platformlara değdiğinde
+    if (other is GrassGroundObstacle ||
+        other is SandPlatform ||
+        other is SnowPlatform) {
+      if (velocity.y > 0) {
+        // Sadece yukarıdan çarptıysa zemin kabul et
+        isOnGround = true;
+        velocity.y = 0;
+        position.y = other.toRect().top - 1;
+      }
+    }
+  }
+
+  @override
+  void onCollisionEnd(PositionComponent other) {
+    if (other is GrassGroundObstacle ||
+        other is SandPlatform ||
+        other is SnowPlatform) {
       isOnGround = false;
     }
-
-    return true; // Indicate the event was handled
   }
 }
